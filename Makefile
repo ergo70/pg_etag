@@ -8,10 +8,14 @@ DOCS =
 SCRIPTS =
 EXTRA_CLEAN = $(MODULE_big).so
 
-OS := $(shell uname -s)
-ifeq ($(OS), FreeBSD)
-SHLIB_LINK = -lmd
-endif
+#OS := $(shell uname -s)
+#ifeq ($(OS), FreeBSD)
+#SHLIB_LINK = -lmd
+#endif
+
+PG_CPPFLAGS=-finline-functions -funroll-loops -I /home/ergo/Devel/libb2/dist/include
+
+SHLIB_LINK = -L /home/ergo/Devel/libb2/dist/lib -lb2
 
 PG_CONFIG = pg_config
 PGXS := $(shell $(PG_CONFIG) --pgxs)

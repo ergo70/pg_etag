@@ -33,16 +33,15 @@
 #include <string.h>
 #include "fmgr.h"
 #include "utils/elog.h"
-PG_MODULE_MAGIC;
+#include "blake2.h"
 
-#if defined(__linux__) || defined(__APPLE__)
-#include "md5.c"
-#elif defined(__FreeBSD__) || defined(__OpenBSD__) || defined(__sun__)
-#include <sys/types.h>
-#include <md5.h>
-#else
-#error unknown operating system!
+#ifdef PG_MODULE_MAGIC
+PG_MODULE_MAGIC;
 #endif
+
+#define BLAKE2B_DIGEST_LENGTH 64*sizeof(char)
+
+char *binary2hex(unsigned char *data, unsigned len, char *buf);
 
 //lint -esym(818,data) -esym(952,len) ignore non const parameters
 char *binary2hex(unsigned char *data, unsigned len, char *buf)
@@ -106,75 +105,62 @@ char *binary2hex(unsigned char *data, unsigned len, char *buf)
   return buf;
 }
 
-#define ctx (MD5_CTX*) VARDATA(state)
+#define ctx (blake2b_state*) VARDATA(state)
 
-PG_FUNCTION_INFO_V1(md5agg_state);
-Datum md5agg_state(PG_FUNCTION_ARGS)
+PG_FUNCTION_INFO_V1(pg_etag_state);
+Datum pg_etag_state(PG_FUNCTION_ARGS)
 {
-  text *state = PG_GETARG_TEXT_P/*_COPY*/(0); /* do we really need the _COPY here? As this is an aggregate function it will not receive a direct TOAST pointer */
+  text *state = PG_GETARG_TEXT_P(0);
   const int state_len=VARSIZE(state) - VARHDRSZ;
 
   text *txt = PG_GETARG_TEXT_P(1);
   const int txt_len=VARSIZE(txt) - VARHDRSZ;
 
-#if 0
-  /* some debug output of the parameters */
-  char a[128],b[128];
-  memset(a, 0, sizeof(a));
-  memset(b, 0, sizeof(b));
-  memcpy(a, VARDATA(state), state_len);
-  memcpy(b, VARDATA(txt), txt_len);
-  ereport(LOG,
-	  (errcode(ERRCODE_WARNING),
-	   errmsg("md5agg_state(): state=%i '%s' txt=%i '%s'", state_len, a, txt_len, b)
-	   ));
-#endif
-
   /* if this is the first invocation of the state function, initialize the MD5 context */
   if(state_len == 0)
     {
-      const int state_size=VARHDRSZ + sizeof(MD5_CTX);
+      const int state_size=VARHDRSZ + sizeof(blake2b_state);
       state = palloc(state_size);
       SET_VARSIZE(state, state_size);
-      MD5Init(ctx);
+      blake2b_init(ctx, BLAKE2B_DIGEST_LENGTH);
     }
   /* check the state parameter for required length */
-  else if(state_len != sizeof(MD5_CTX))
+  else if(state_len != sizeof(blake2b_state))
     {
       /* abort the function/transaction as the length is not of MD5 context */
       ereport(ERROR,
 	      (errcode(ERRCODE_DATA_CORRUPTED),
-	       errmsg("md5agg_state(): size mismatch: state=%i ctx=%i", state_len, (int)sizeof(MD5_CTX))
+	       errmsg("pg_etag_state(): size mismatch: state=%i ctx=%i", state_len, (int)sizeof(blake2b_state))
 	       ));
       PG_RETURN_NULL();
     }
 
   /* is there txt to update? */
   if(txt_len > 0)
-    MD5Update(ctx, VARDATA(txt), txt_len);
+    blake2b_update(ctx, (const unsigned char*) VARDATA(txt), txt_len);
 
   PG_RETURN_TEXT_P(state);
 }
 
-PG_FUNCTION_INFO_V1(md5agg_final);
-Datum md5agg_final(PG_FUNCTION_ARGS)
+PG_FUNCTION_INFO_V1(pg_etag_final);
+Datum pg_etag_final(PG_FUNCTION_ARGS)
 {
   text *state = PG_GETARG_TEXT_P(0);
   const int state_len=VARSIZE(state) - VARHDRSZ;
 
-  const int ret_size=VARHDRSZ + MD5_DIGEST_LENGTH*2;
+  const int ret_size=VARHDRSZ + BLAKE2B_DIGEST_LENGTH*2;
   text *ret = palloc(ret_size + 1); /* C-string terminator from binary2hex() */
 
   /* check if state parameter has required length */
-  if(state_len != sizeof(MD5_CTX))
+  if(state_len != sizeof(blake2b_state))
     {
       PG_RETURN_NULL();
     }
   else
     {
       /* calculate digest */
-      unsigned char digest[MD5_DIGEST_LENGTH];
-      MD5Final(digest, ctx);
+      unsigned char digest[BLAKE2B_DIGEST_LENGTH];
+      blake2b_final(ctx, (void*) &digest[0], BLAKE2B_DIGEST_LENGTH);
       /* convert binary digest to hex characters */
       SET_VARSIZE(ret, ret_size);
       binary2hex(digest, sizeof(digest), VARDATA(ret));
