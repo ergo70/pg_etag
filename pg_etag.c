@@ -168,3 +168,26 @@ Datum pg_etag_final(PG_FUNCTION_ARGS)
 
   PG_RETURN_TEXT_P(ret);
 }
+
+PG_FUNCTION_INFO_V1(pg_etag_single);
+Datum pg_etag_single(PG_FUNCTION_ARGS)
+{
+  text *txt = PG_GETARG_TEXT_P(0);
+  const int txt_len=VARSIZE(txt) - VARHDRSZ;
+
+  blake2b_state state[1];
+  unsigned char digest[BLAKE2B_DIGEST_LENGTH];
+
+  const int ret_size=VARHDRSZ + BLAKE2B_DIGEST_LENGTH*2;
+  text *ret = palloc(ret_size + 1); /* C-string terminator from binary2hex() */
+
+  blake2b_init(state, BLAKE2B_DIGEST_LENGTH);
+  blake2b_update(state, (const unsigned char*) VARDATA(txt), txt_len);
+  blake2b_final(state, (void*) &digest[0], BLAKE2B_DIGEST_LENGTH);
+
+  /* convert binary digest to hex characters */
+  SET_VARSIZE(ret, ret_size);
+  binary2hex(digest, sizeof(digest), VARDATA(ret));
+
+  PG_RETURN_TEXT_P(ret);
+}
