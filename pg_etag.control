@@ -1,0 +1,5 @@
+# pg_etag extension
+comment = 'Extension for ETag. Aggregate and single input.'
+default_version = '1.0'
+module_pathname = '$libdir/pg_etag'
+relocatable = true
