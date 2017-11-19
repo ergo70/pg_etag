@@ -41,10 +41,10 @@ PG_MODULE_MAGIC;
 
 #define BLAKE2B_DIGEST_LENGTH 64*sizeof(char)
 
-char *binary2hex(unsigned char *data, unsigned len, char *buf);
+static inline char *binary2hex(unsigned char *data, unsigned len, char *buf);
 
 //lint -esym(818,data) -esym(952,len) ignore non const parameters
-char *binary2hex(unsigned char *data, unsigned len, char *buf)
+static inline char *binary2hex(unsigned char *data, unsigned len, char *buf)
 {
   unsigned i;
   char *s=buf;
