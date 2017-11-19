@@ -5,9 +5,9 @@ DOCS =
 SCRIPTS =
 EXTRA_CLEAN = $(MODULE_big).so
 
-PG_CPPFLAGS=-I /libb2/dist/include
+PG_CPPFLAGS=-I ./libb2/dist/include
 
-SHLIB_LINK=-L /libb2/dist/lib -lb2
+SHLIB_LINK=-L ./libb2/dist/lib -lb2
 
 PG_CONFIG = pg_config
 PGXS := $(shell $(PG_CONFIG) --pgxs)

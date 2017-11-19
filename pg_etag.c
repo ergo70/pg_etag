@@ -110,13 +110,13 @@ char *binary2hex(unsigned char *data, unsigned len, char *buf)
 PG_FUNCTION_INFO_V1(pg_etag_state);
 Datum pg_etag_state(PG_FUNCTION_ARGS)
 {
-  text *state = PG_GETARG_TEXT_P(0);
+  bytea *state = PG_GETARG_BYTEA_P(0);
   const int state_len=VARSIZE(state) - VARHDRSZ;
 
   text *txt = PG_GETARG_TEXT_P(1);
   const int txt_len=VARSIZE(txt) - VARHDRSZ;
 
-  /* if this is the first invocation of the state function, initialize the MD5 context */
+  /* if this is the first invocation of the state function, initialize the BLAKE2 context */
   if(state_len == 0)
     {
       const int state_size=VARHDRSZ + sizeof(blake2b_state);
@@ -139,13 +139,13 @@ Datum pg_etag_state(PG_FUNCTION_ARGS)
   if(txt_len > 0)
     blake2b_update(ctx, (const unsigned char*) VARDATA(txt), txt_len);
 
-  PG_RETURN_TEXT_P(state);
+  PG_RETURN_BYTEA_P(state);
 }
 
 PG_FUNCTION_INFO_V1(pg_etag_final);
 Datum pg_etag_final(PG_FUNCTION_ARGS)
 {
-  text *state = PG_GETARG_TEXT_P(0);
+  bytea *state = PG_GETARG_BYTEA_P(0);
   const int state_len=VARSIZE(state) - VARHDRSZ;
 
   const int ret_size=VARHDRSZ + BLAKE2B_DIGEST_LENGTH*2;
@@ -183,6 +183,64 @@ Datum pg_etag_single(PG_FUNCTION_ARGS)
 
   blake2b_init(state, BLAKE2B_DIGEST_LENGTH);
   blake2b_update(state, (const unsigned char*) VARDATA(txt), txt_len);
+  blake2b_final(state, (void*) &digest[0], BLAKE2B_DIGEST_LENGTH);
+
+  /* convert binary digest to hex characters */
+  SET_VARSIZE(ret, ret_size);
+  binary2hex(digest, sizeof(digest), VARDATA(ret));
+
+  PG_RETURN_TEXT_P(ret);
+}
+
+PG_FUNCTION_INFO_V1(pg_etag_state_b);
+Datum pg_etag_state_b(PG_FUNCTION_ARGS)
+{
+  bytea *state = PG_GETARG_BYTEA_P(0);
+  const int state_len=VARSIZE(state) - VARHDRSZ;
+
+  bytea *data = PG_GETARG_BYTEA_P(1);
+  const int data_len=VARSIZE(data) - VARHDRSZ;
+
+  /* if this is the first invocation of the state function, initialize the BLAKE2 context */
+  if(state_len == 0)
+    {
+      const int state_size=VARHDRSZ + sizeof(blake2b_state);
+      state = palloc(state_size);
+      SET_VARSIZE(state, state_size);
+      blake2b_init(ctx, BLAKE2B_DIGEST_LENGTH);
+    }
+  /* check the state parameter for required length */
+  else if(state_len != sizeof(blake2b_state))
+    {
+      /* abort the function/transaction as the length is not of MD5 context */
+      ereport(ERROR,
+	      (errcode(ERRCODE_DATA_CORRUPTED),
+	       errmsg("pg_etag_state_b(): size mismatch: state=%i ctx=%i", state_len, (int)sizeof(blake2b_state))
+	       ));
+      PG_RETURN_NULL();
+    }
+
+  /* is there data to update? */
+  if(data_len > 0)
+    blake2b_update(ctx, (const unsigned char*) VARDATA(data), data_len);
+
+  PG_RETURN_BYTEA_P(state);
+}
+
+PG_FUNCTION_INFO_V1(pg_etag_single_b);
+Datum pg_etag_single_b(PG_FUNCTION_ARGS)
+{
+  text *data = PG_GETARG_BYTEA_P(0);
+  const int data_len=VARSIZE(data) - VARHDRSZ;
+
+  blake2b_state state[1];
+  unsigned char digest[BLAKE2B_DIGEST_LENGTH];
+
+  const int ret_size=VARHDRSZ + BLAKE2B_DIGEST_LENGTH*2;
+  text *ret = palloc(ret_size + 1); /* C-string terminator from binary2hex() */
+
+  blake2b_init(state, BLAKE2B_DIGEST_LENGTH);
+  blake2b_update(state, (const unsigned char*) VARDATA(data), data_len);
   blake2b_final(state, (void*) &digest[0], BLAKE2B_DIGEST_LENGTH);
 
   /* convert binary digest to hex characters */
