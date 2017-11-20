@@ -48,6 +48,18 @@ AS 'pg_etag', 'pg_etag_single_b'
 LANGUAGE C IMMUTABLE STRICT;
 COMMENT ON FUNCTION etag(BYTEA) IS 'Non aggregate (single input) ETag BLAKE2 function.';
 
+CREATE OR REPLACE FUNCTION blake2(text, integer default 64)
+RETURNS text
+AS 'pg_etag', 'pg_blake2_single'
+LANGUAGE C IMMUTABLE STRICT;
+COMMENT ON FUNCTION blake2(text, integer) IS 'Non aggregate (single input) BLAKE2 function.';
+
+CREATE OR REPLACE FUNCTION blake2(BYTEA, integer default 64)
+RETURNS text
+AS 'pg_etag', 'pg_blake2_single_b'
+LANGUAGE C IMMUTABLE STRICT;
+COMMENT ON FUNCTION blake2(BYTEA, integer) IS 'Non aggregate (single input) BLAKE2 function.';
+
 CREATE OR REPLACE FUNCTION public.etag(id oid)
 RETURNS text
 AS $$

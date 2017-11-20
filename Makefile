@@ -5,7 +5,7 @@ DOCS =
 SCRIPTS =
 EXTRA_CLEAN = $(MODULE_big).so
 
-PG_CPPFLAGS=-I ./libb2/dist/include
+PG_CPPFLAGS=-fomit-frame-pointer -I ./libb2/dist/include
 
 SHLIB_LINK=-L ./libb2/dist/lib -lb2
 
