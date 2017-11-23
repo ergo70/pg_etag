@@ -33,15 +33,6 @@ SELECT etag_agg(t.etag) FROM (SELECT etag FROM omr WHERE id BETWEEN 500 AND 1700
 
 ### Slow client ([pgAdmin3](https://www.pgadmin.org/download/))
 
-```sql
-CREATE TABLE omr AS SELECT t.t AS id, clock_timestamp() AS ts, NULL::TEXT AS etag FROM generate_series(1,1000000) t
-
-UPDATE omr SET etag=etag(id::TEXT || ts::TEXT)
-
-ALTER TABLE omr
-  ADD CONSTRAINT pk_omr PRIMARY KEY (id);
-```
-
 Query:
 
 ```sql
