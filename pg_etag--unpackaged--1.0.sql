@@ -1,19 +1,19 @@
 ﻿CREATE OR REPLACE FUNCTION pg_etag_state(BYTEA, text)
 RETURNS BYTEA
 AS 'pg_etag', 'pg_etag_state'
-LANGUAGE C STRICT;
+LANGUAGE C IMMUTABLE STRICT;
 COMMENT ON FUNCTION pg_etag_state(BYTEA, text) IS 'State function for etag_agg(text) aggregate.';
 
 CREATE OR REPLACE FUNCTION pg_etag_state(BYTEA, BYTEA)
 RETURNS BYTEA
 AS 'pg_etag', 'pg_etag_state_b'
-LANGUAGE C STRICT;
+LANGUAGE C IMMUTABLE STRICT;
 COMMENT ON FUNCTION pg_etag_state(BYTEA, BYTEA) IS 'State function for etag_agg(text) aggregate.';
 
 CREATE OR REPLACE FUNCTION pg_etag_final(BYTEA)
 RETURNS text
 AS 'pg_etag', 'pg_etag_final'
-LANGUAGE C STRICT;
+LANGUAGE C IMMUTABLE STRICT;
 COMMENT ON FUNCTION pg_etag_final(text) IS 'Finalize function for etag_agg(text) aggregate.';
 
 DROP AGGREGATE IF EXISTS etag_agg(text);
@@ -63,4 +63,4 @@ RETURNS text
 AS $$
 SELECT etag_agg("data") FROM (SELECT l."data" from pg_largeobject l WHERE l.loid=id ORDER BY l.pageno ASC) t; 
 $$
-LANGUAGE sql stable strict;
+LANGUAGE sql VOLATILE strict;
