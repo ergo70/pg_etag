@@ -2,6 +2,10 @@
 
 Fast ETag generation for rows and result sets with BLAKE2 hashes.
 
+## Installation
+
+pg_etag needs [libb2](https://github.com/BLAKE2/libb2)
+
 ## Example
 
 ### Fast client ([SQL Tabs](https://www.sqltabs.com/))
